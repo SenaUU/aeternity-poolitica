@@ -1,0 +1,83 @@
+@compiler >= 6
+
+contract YieldPool =
+
+  record state = { total_deposits : int, balances : map(address, int), votes : map(string, int), user_votes : map(address, string), voting_active : bool, owner : address }
+
+  entrypoint init() = { total_deposits = 0, balances = {}, votes = {["Safe"] = 0, ["Risky"] = 0, ["Charity"] = 0}, user_votes = {}, voting_active = true, owner = Call.caller }
+
+  function get_balance(user : address) : int = Map.lookup_default(user, state.balances, 0)
+
+  function get_user_vote(user : address) : option(string) = Map.lookup(user, state.user_votes)
+
+  function get_strategy_votes(strategy : string) : int = Map.lookup_default(strategy, state.votes, 0)
+
+  function is_valid_strategy(strategy : string) : bool =
+    strategy == "Safe" || strategy == "Risky" || strategy == "Charity"
+
+  payable stateful entrypoint deposit() =
+    require(Call.value > 0, "Cannot deposit zero")
+    let amount = Call.value
+    let current_balance = get_balance(Call.caller)
+    let new_balance = current_balance + amount
+    put(state{ balances[Call.caller] = new_balance, total_deposits = state.total_deposits + amount })
+
+  stateful entrypoint withdraw(amount : int) =
+    require(amount > 0, "Cannot withdraw zero")
+    let current_balance = get_balance(Call.caller)
+    require(current_balance >= amount, "Insufficient balance")
+    let new_balance = current_balance - amount
+    put(state{ balances[Call.caller] = new_balance, total_deposits = state.total_deposits - amount })
+    Chain.spend(Call.caller, amount)
+
+  stateful entrypoint vote(strategy : string) =
+    require(state.voting_active, "Voting is not active")
+    require(is_valid_strategy(strategy), "Invalid strategy")
+    let user_balance = get_balance(Call.caller)
+    require(user_balance > 0, "Must have deposits to vote")
+    switch(get_user_vote(Call.caller))
+      None => ()
+      Some(old_strategy) =>
+        let old_votes = get_strategy_votes(old_strategy)
+        put(state{ votes[old_strategy] = old_votes - user_balance })
+    let current_votes = get_strategy_votes(strategy)
+    put(state{ votes[strategy] = current_votes + user_balance, user_votes[Call.caller] = strategy })
+
+  function get_winning_strategy() : string =
+    let safe_votes = get_strategy_votes("Safe")
+    let risky_votes = get_strategy_votes("Risky")
+    let charity_votes = get_strategy_votes("Charity")
+    switch((safe_votes >= risky_votes && safe_votes >= charity_votes, risky_votes >= charity_votes))
+      (true, _) => "Safe"
+      (false, true) => "Risky"
+      (false, false) => "Charity"
+
+  function calculate_mock_yield(strategy : string) : int =
+    switch(strategy)
+      "Safe" => 5
+      "Risky" => 15
+      _ => 3
+
+  function apply_yield(balance : int, percentage : int) : int =
+    balance + (balance * percentage) / 100
+
+  stateful entrypoint execute_strategy() =
+    require(Call.caller == state.owner, "Only owner can execute")
+    require(state.voting_active, "Voting already executed")
+    require(state.total_deposits > 0, "No deposits to execute on")
+    let winning_strategy = get_winning_strategy()
+    let yield_percentage = calculate_mock_yield(winning_strategy)
+    let total_yield = (state.total_deposits * yield_percentage) / 100
+    put(state{ total_deposits = state.total_deposits + total_yield, voting_active = false })
+
+  stateful entrypoint reset_voting() =
+    require(Call.caller == state.owner, "Only owner can reset")
+    put(state{ votes = {["Safe"] = 0, ["Risky"] = 0, ["Charity"] = 0}, user_votes = {}, voting_active = true })
+
+  entrypoint get_total_deposits() : int = state.total_deposits
+  entrypoint get_user_balance(user : address) : int = get_balance(user)
+  entrypoint get_votes() : map(string, int) = state.votes
+  entrypoint get_user_vote_choice(user : address) : option(string) = get_user_vote(user)
+  entrypoint get_available_strategies() : list(string) = ["Safe", "Risky", "Charity"]
+  entrypoint is_voting_active() : bool = state.voting_active
+  entrypoint get_contract_balance() : int = Contract.balance

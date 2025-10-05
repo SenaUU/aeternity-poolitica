@@ -1,0 +1,159 @@
+# **🌟 Hackathon MVP: Community-Governed Yield Pool**
+
+### **Idea Overview**
+
+Users deposit AE into a shared pool. They vote on which yield strategy to deploy the pooled funds into. At the end of the voting period, the winning strategy is executed.
+
+**Goals for 24h MVP:**
+
+* Simple **deposit / withdraw**
+* **Stake-weighted voting**
+* **Mock yield strategies** for demonstration
+* **Frontend AEpp demo** (Superhero Wallet + simple dashboard)
+
+---
+
+## *1️⃣ Smart Contract Structure (Sophia)**
+
+### **State Variables**
+
+```sophia
+contract YieldPool =
+  record state = {
+    total_deposits : int,
+    balances : map(address, int),
+    available_strategies : list(string),
+    votes : map(string, int),
+    user_votes : map(address, string)
+  }
+```
+
+### **Functions**
+
+1. **Deposit**
+
+```sophia
+entrypoint deposit(amount : int) =
+  require(amount > 0, "Cannot deposit zero")
+  put(state{ balances[Call.caller] = get_balance(Call.caller) + amount,
+              total_deposits = state.total_deposits + amount })
+```
+
+2. **Withdraw**
+
+```sophia
+entrypoint withdraw(amount : int) =
+  require(get_balance(Call.caller) >= amount, "Not enough balance")
+  put(state{ balances[Call.caller] = get_balance(Call.caller) - amount,
+              total_deposits = state.total_deposits - amount })
+```
+
+3. **Vote**
+
+```sophia
+entrypoint vote(strategy : string) =
+  require(List.member(strategy, state.available_strategies), "Invalid strategy")
+  old_vote = Map.lookup(Call.caller, state.user_votes)
+  if old_vote != None then
+    old_strategy = Option.get(old_vote)
+    state.votes[old_strategy] = state.votes[old_strategy] - get_balance(Call.caller)
+  end
+  state.votes[strategy] = state.votes[strategy] + get_balance(Call.caller)
+  state.user_votes[Call.caller] = strategy
+```
+
+4. **Execute Strategy (Mock)**
+
+```sophia
+entrypoint execute_strategy() =
+  winner = get_highest_voted_strategy(state.votes)
+  // For hackathon: just increase each user balance by mock yield
+  new_balances = Map.map(state.balances, fn (addr, bal) -> bal + bal * mock_yield(winner) / 100)
+  put(state{ balances = new_balances })
+```
+
+> ✅ For 24h MVP, `mock_yield` can be a fixed percentage per strategy.
+
+---
+
+## **2️⃣ Voting Logic**
+
+* **Voting weight = user’s deposit**
+* Users can **change vote anytime before execution**
+* Execution triggers yield distribution automatically
+
+Optional hackathon twist:
+
+* Display projected yield in frontend
+* Mock “riskier” strategy = higher % but random variance
+
+---
+
+## **3️⃣ Frontend AEpp MVP**
+
+### **UI Components**
+
+1. **Dashboard**
+
+   * Total pool deposits
+   * Your balance
+   * Current votes for each strategy (bars / live tally)
+
+2. **Deposit / Withdraw**
+
+   * Input + button (integrate Superhero Wallet)
+
+3. **Vote**
+
+   * Button for each strategy
+   * Show weighted vote tally live
+
+4. **Execute / Result**
+
+   * After voting period, button triggers `execute_strategy()`
+   * Show new balances and “yield earned”
+
+> AEpp boilerplate + Superhero Wallet handles login + transaction signing.
+
+---
+
+## **4️⃣ Demo Flow (Hackathon Pitch)**
+
+1. **Intro (30s)**:
+   “This is a **community-governed yield pool**. Everyone can deposit AE and vote on how the funds are deployed. The pool executes the winning strategy transparently.”
+
+2. **Deposit + Vote (1–2 min)**:
+
+   * Show a few users depositing (mock wallets)
+   * Users vote for strategies (safe / risky / charity)
+   * Show live tally bars
+
+3. **Execute Strategy (1 min)**:
+
+   * Trigger execution
+   * Display new balances + yield results
+   * Optional: show “mock risk simulation”
+
+4. **Conclusion (30s)**:
+
+   * Emphasize **community governance, transparency, and interactivity**
+   * Tie story to Frontier Tower: “A vertical village where residents decide collectively how pooled resources are used.”
+
+---
+
+## **5️⃣ Optional Hackathon Extras**
+
+* **Quadratic voting** instead of linear (extra points with judges)
+* **Strategy simulation chart** (risk vs reward)
+* **Community contribution leaderboard**
+* **Animated yield growth** to impress visually
+
+---
+
+This MVP is **fully achievable in 24 hours**:
+
+* Sophia contract: 3–4 functions
+* Frontend: 1 AEpp page with 4 sections
+* Mock yield = no real DeFi integration needed
+
+
