@@ -150,17 +150,6 @@ function App() {
     };
   }, []);
 
-  // Helper to wait for tx confirm with timeout
-  const waitForTxConfirmWithTimeout = async (hash, options = {}, timeoutMs = 60000) => {
-    console.log(`Waiting for tx confirmation: ${hash}`);
-    return Promise.race([
-      aeSdk.waitForTxConfirm(hash, options),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Transaction confirmation timeout after ${timeoutMs}ms`)), timeoutMs)
-      )
-    ]);
-  };
-
   // Initialize AeSdkAepp and start detection
   const initializeAeSdk = async () => {
     try {
@@ -398,7 +387,6 @@ function App() {
       console.log('deposit', amount);
       tx = await contract.deposit({ amount: BigInt(amount) });
       console.log('Deposit tx sent:', tx);
-      await waitForTxConfirmWithTimeout(tx.hash, { confirm: 1 });
       console.log('Deposit confirmed');
     } catch (err) {
       console.error('Deposit confirmation failed:', err);
@@ -419,7 +407,6 @@ function App() {
       console.log('withdraw', amount);
       tx = await contract.withdraw(BigInt(amount));
       console.log('Withdraw tx sent:', tx);
-      await waitForTxConfirmWithTimeout(tx.hash, { confirm: 1 });
       console.log('Withdraw confirmed');
     } catch (err) {
       console.error('Withdraw confirmation failed:', err);
@@ -440,7 +427,6 @@ function App() {
       console.log('vote', strategy);
       tx = await contract.vote(strategy);
       console.log('Vote tx sent:', tx);
-      await waitForTxConfirmWithTimeout(tx.hash, { confirm: 1 });
       console.log('Vote confirmed');
     } catch (err) {
       console.error('Vote confirmation failed:', err);
@@ -462,7 +448,6 @@ function App() {
       console.log('execute strategy');
       tx = await contract.execute_strategy();
       console.log('Execute tx sent:', tx);
-      await waitForTxConfirmWithTimeout(tx.hash, { confirm: 1 });
       console.log('Execute confirmed');
     } catch (err) {
       console.error('Execute confirmation failed:', err);

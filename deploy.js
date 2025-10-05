@@ -1,5 +1,8 @@
-// deploy-working.js
+// deploy.js
 // Working deployment script for SDK v14.1.0
+
+// Load environment variables from .env file
+require('dotenv').config();
 
 const { AeSdk, Node, MemoryAccount, CompilerHttp } = require('@aeternity/aepp-sdk');
 const fs = require('fs');
@@ -14,7 +17,7 @@ async function deployContract() {
     if (!SECRET_KEY) {
       console.error('❌ Error: AE_SECRET_KEY environment variable not set!');
       console.log('\n📝 Set it with:');
-      console.log('   $nv:AE_SECRET_KEY="your_secret_key_here"');
+      console.log('   $env:AE_SECRET_KEY="your_secret_key_here"');
       console.log('\nOr create a .env file (see .env.example)\n');
       process.exit(1);
     }
